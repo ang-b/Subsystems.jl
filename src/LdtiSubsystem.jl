@@ -1,12 +1,3 @@
-export LdtiSubsystem, 
-    LinearSubsystem, 
-    AbstractSubsystem,
-    addNeighbour, 
-    removeNeighbour,
-    getNeighbourIndices,
-    stepSubsystem,
-    outputMap
-
 function state_space_validation(A,B,C,D)
     nx = size(A, 1)
     nu = size(B, 2)
@@ -36,9 +27,10 @@ mutable struct LdtiSubsystem{T<:Real} <:LinearSubsystem{T}
     neighbours::Array{LdtiSubsystem{T}}
     Aij::Array{Matrix{T}}
     x::Vector{T}
+    xnext::Vector{T}
     function LdtiSubsystem(i, A::Matrix{T}, B::Matrix{T}, C::OutputMatrix{T}, D::Matrix{T}) where {T<:Real} 
         (nx, nu, ny) = state_space_validation(A, B, C, D)
-        new{T}(A, B, C, D, i, [], [], zeros(T, nx))
+        new{T}(A, B, C, D, i, [], [], zeros(T, nx), zeros(T, nx))
     end
     function LdtiSubsystem(i, A::Matrix{T}, B::Matrix{T}, C::OutputMatrix{T}) where {T<:Real}
         ny = C == I ? size(A,1) : size(C,1)
@@ -47,26 +39,20 @@ mutable struct LdtiSubsystem{T<:Real} <:LinearSubsystem{T}
     end
 end
 
-function stepSubsystemLocal(sys::LdtiSubsystem{T}, u::Vector{T}) where {T<:Real}
-    sys.x = sys.A * sys.x + sys.B * u
-end
-
-stepSubsystemLocal(sys::LdtiSubsystem{T}, u::T) where {T<:Real} = stepSubsystemLocal(sys, [u])
-
-function stepSubsystem(sys::LdtiSubsystem{T}, u::Vector{T}) where {T<:Real}
+function updateState(sys::LdtiSubsystem{T}, u::Vector{T}) where {T<:Real}
     if isempty(sys.neighbours) 
-        stepSubsystemLocal(sys, u) 
+        sys.xnext = sys.A * sys.x + sys.B * u
     else
         barx = mapreduce(s -> s.x, vcat, sys.neighbours)
-        stepSubsystemLocal(sys, u)
-        sys.x += sys.E * barx 
+        sys.xnext = sys.A * sys.x + sys.B * u + sys.E * barx 
     end
 end
 
-stepSubsystem(sys::LdtiSubsystem{T}, u::T) where {T<:Real} = stepSubsystem(sys, [u])
+updateState(sys::LdtiSubsystem{T}, u::T) where {T<:Real} = updateState(sys, [u])
 
 function outputMap(sys::LinearSubsystem{T}, u) where {T<:Real}
-   y = sys.C * sys.x + sys.D * u 
+    sys.x = sys.xnext
+    sys.C * sys.x + sys.D * u 
 end
 
 function addNeighbour(sys::LinearSubsystem{T}, neighbour::LinearSubsystem{T}, weight::Matrix{T}) where {T<:Real}
@@ -101,10 +87,24 @@ function Base.getproperty(sys::LinearSubsystem, s::Symbol)
         return ninputs(sys)
     elseif s === :ny
         return noutputs(sys)
+    elseif s === :Cmat
+        return sys.C == I ? Matrix(I, sys.ny, sys.ny) : sys.C
     elseif s === :E
-        return isempty(sys.Aij) ? zeros(typeof(sys.x), sys.nx, sys.nx) : foldl(hcat, sys.Aij)
+        return isempty(sys.Aij) ? zeros(eltype(sys.x), sys.nx, sys.nx) : foldl(hcat, sys.Aij)
     else
         return getfield(sys, s)
+    end
+end
+
+function Base.setproperty!(sys::LinearSubsystem, s::Symbol, val)
+    if s ∉ [:A, :B, :C, :D]
+        error("Protected property")
+    else
+        if size(val) != size(getfield(sys, s))
+            error("Cannot change size")
+        else
+            return setfield!(sys, s, val)
+        end
     end
 end
 
