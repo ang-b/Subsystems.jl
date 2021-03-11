@@ -67,11 +67,11 @@ function setF(o::UIO{T}, K1::Matrix{T}) where {T<:Real}
     o.K = K1 + o.F*o.H
 end
 
-function stepObs(o::UIO{T}, u::Vector{T}, y::Vector{T}) where {T<:Real}
+function updateState(o::UIO{T}, u::Vector{T}, y::Vector{T}) where {T<:Real}
     o.z = o.F*o.z + o.T*o.B*u + o.K*y
 end
 
-stepObs(o::UIO{T}, u::T, y::Vector{T}) where {T<:Real} = stepObs(o, [u], y)
+updateState(o::UIO{T}, u::T, y::Vector{T}) where {T<:Real} = updateState(o, [u], y)
 
 outputMap(o::UIO{T}, y::Vector{T}) where {T<:Real} = o.z + o.H*y
 

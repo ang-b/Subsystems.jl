@@ -23,6 +23,7 @@ mutable struct LdtiSubsystem{T<:Real} <:LinearSubsystem{T}
     B::Matrix{T}
     C::OutputMatrix{T}
     D::Matrix{T}
+    E::Matrix{T}
     index::UInt
     neighbours::Array{LdtiSubsystem{T}}
     Aij::Array{Matrix{T}}
@@ -30,7 +31,7 @@ mutable struct LdtiSubsystem{T<:Real} <:LinearSubsystem{T}
     xnext::Vector{T}
     function LdtiSubsystem(i, A::Matrix{T}, B::Matrix{T}, C::OutputMatrix{T}, D::Matrix{T}) where {T<:Real} 
         (nx, nu, ny) = state_space_validation(A, B, C, D)
-        new{T}(A, B, C, D, i, [], [], zeros(T, nx), zeros(T, nx))
+        new{T}(A, B, C, D, Matrix{T}(undef, nx, 0), i, [], [], zeros(T, nx), zeros(T, nx))
     end
     function LdtiSubsystem(i, A::Matrix{T}, B::Matrix{T}, C::OutputMatrix{T}) where {T<:Real}
         ny = C == I ? size(A,1) : size(C,1)
@@ -39,19 +40,24 @@ mutable struct LdtiSubsystem{T<:Real} <:LinearSubsystem{T}
     end
 end
 
-function updateState(sys::LdtiSubsystem{T}, u::Vector{T}) where {T<:Real}
-    if isempty(sys.neighbours) 
-        sys.xnext = sys.A * sys.x + sys.B * u
-    else
-        barx = mapreduce(s -> s.x, vcat, sys.neighbours)
-        sys.xnext = sys.A * sys.x + sys.B * u + sys.E * barx 
-    end
+function setInitialState(sys::LdtiSubsystem{T}, x::Vector{T}) where {T}
+    setfield!(sys, :x, x)
+    setfield!(sys, :xnext, x)
 end
 
-updateState(sys::LdtiSubsystem{T}, u::T) where {T<:Real} = updateState(sys, [u])
+function updateState(sys::LdtiSubsystem{T}, u::Vector{T}, w::Vector{T}) where {T}
+    if isempty(sys.neighbours) 
+        setfield!(sys, :xnext, sys.A * sys.x + sys.B * u .+ w)
+    else
+        barx = mapreduce(s -> s.x, vcat, sys.neighbours)
+        setfield!(sys, :xnext, sys.A * sys.x + sys.B * u + sys.E * barx + w) 
+    end
+end
+updateState(sys::LdtiSubsystem{T}, u::T, w::Vector{T}) where {T} = updateState(sys, [u], w)
+updateState(sys::LdtiSubsystem{T}, u) where {T} = updateState(sys, u, convert(T, 0))
 
 function outputMap(sys::LinearSubsystem{T}, u) where {T<:Real}
-    sys.x = sys.xnext
+    setfield!(sys, :x, sys.xnext)
     sys.C * sys.x + sys.D * u 
 end
 
@@ -61,6 +67,7 @@ function addNeighbour(sys::LinearSubsystem{T}, neighbour::LinearSubsystem{T}, we
     end
     push!(sys.neighbours, neighbour)
     push!(sys.Aij, weight)
+    updateE(sys)
     map(x-> convert(Int, x), getNeighbourIndices(sys))
 end
 
@@ -72,6 +79,12 @@ end
 
 function getNeighbourIndices(sys::AbstractSubsystem) 
     Tuple([s.index for s in sys.neighbours])
+end
+
+function updateE(sys::LinearSubsystem{T}) where {T}
+    setfield!(sys, :E, isempty(sys.Aij) ? 
+                            Matrix{T}(undef, sys.nx, 0) : 
+                            foldl(hcat, sys.Aij))
 end
 
 ninputs(sys::LinearSubsystem) = size(sys.D, 2)
@@ -89,15 +102,13 @@ function Base.getproperty(sys::LinearSubsystem, s::Symbol)
         return noutputs(sys)
     elseif s === :Cmat
         return sys.C == I ? Matrix(I, sys.ny, sys.ny) : sys.C
-    elseif s === :E
-        return isempty(sys.Aij) ? zeros(eltype(sys.x), sys.nx, sys.nx) : foldl(hcat, sys.Aij)
     else
         return getfield(sys, s)
     end
 end
 
 function Base.setproperty!(sys::LinearSubsystem, s::Symbol, val)
-    if s ∉ [:A, :B, :C, :D]
+    if s ∉ [:A, :B, :C, :D] 
         error("Protected property")
     else
         if size(val) != size(getfield(sys, s))
@@ -106,11 +117,6 @@ function Base.setproperty!(sys::LinearSubsystem, s::Symbol, val)
             return setfield!(sys, s, val)
         end
     end
-end
-
-function _string_mat_with_headers(X::VecOrMat)
-    p = (io, m) -> Base.print_matrix(io, m)
-    return replace(sprint(p, X), "\"" => " ")
 end
 
 function Base.show(io::IO, sys::LinearSubsystem)

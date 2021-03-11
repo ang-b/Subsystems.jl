@@ -11,12 +11,12 @@ export LdtiSubsystem,
     addNeighbour, 
     removeNeighbour,
     getNeighbourIndices,
-    stepSubsystem,
     outputMap,
     OutputMatrix,
     UIO, 
     setF,
-    stepObs
+    updateState,
+    setInitialState
 
 OutputMatrix{T} = Union{typeof(I), Matrix{T}}
 
