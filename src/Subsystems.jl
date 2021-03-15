@@ -7,13 +7,15 @@ abstract type LinearSubsystem{T} <: AbstractSubsystem end
  
 export LdtiSubsystem, 
     LinearSubsystem, 
+    OutputMatrix,
     AbstractSubsystem,
+    UIO, 
+    DLUE,
     addNeighbour, 
+    setNeighbours,
     removeNeighbour,
     getNeighbourIndices,
     outputMap,
-    OutputMatrix,
-    UIO, 
     setF,
     updateState,
     setInitialState
@@ -27,5 +29,6 @@ end
 
 include("LdtiSubsystem.jl")
 include("Observers/UIO.jl")
+include("Observers/DLuenberger.jl")
 
 end
