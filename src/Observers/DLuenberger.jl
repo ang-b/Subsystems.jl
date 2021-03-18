@@ -5,18 +5,14 @@ mutable struct DLUE{V<:Real}
     L::Matrix{V}
     E::Matrix{V}
     z::Vector{V}
-    neighbours::Vector{UInt}
-    Aij::Vector{Matrix{V}}
-    
-    function DLUE(A::Matrix{V}, B::Matrix{V}, C::OutputMatrix{V}, L::Matrix{V}) where {V<:Real}
+
+    function DLUE(A::T, B::T, C::OutputMatrix{V}, L::T) where {V<:Real, T<:Matrix{V}}
         new{V}(A - L*C, 
             B, 
             C,
             L, 
             Matrix{V}(undef, size(A,1), 0),
-            zeros(V, size(A,1)),
-            [],
-            [])
+            zeros(V, size(A,1)))
     end
 end
 
@@ -24,14 +20,8 @@ function setInitialState(o::DLUE{V}, z0::Vector{V}) where {V<:Real}
     setfield!(o, :z, z0)
 end
 
-function setNeighbours(o::DLUE{V}, neighIdx::AbstractVector, neighVals::AbstractVector{Matrix{V}}) where {V} 
-    if isempty(neighIdx) || isempty(neighVals) 
-        neighIdx = UInt[]
-        neighVals = Vector{Matrix{V}}()
-    end
-    setfield!(o, :neighbours, neighIdx)
-    setfield!(o, :Aij, copy(neighVals))
-    setfield!(o, :E, isempty(o.Aij) ? Matrix{V}(undef, o.nx, 0) : foldl(hcat, o.Aij))
+function setNeighbourCoupling(o::DLUE{V}, coupling::AbstractMatrix{V}) where {V} 
+    setfield!(o, :E, isempty(coupling) ? Matrix{V}(undef, o.nx, 0) : coupling)
 end
 
 function updateState(o::DLUE{V}, u::Vector{V}, y::Vector{V}, hatbarx::AbstractVector{V}) where {V<:Real}

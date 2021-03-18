@@ -9,10 +9,7 @@ mutable struct UIO{V<:Real}
     K::Matrix{V}
     z::Vector{V}
 
-    function UIO(A::Matrix{V}, 
-                B::Matrix{V}, 
-                C::Subsystems.OutputMatrix{V}, 
-                E::Matrix{V}) where {V<:Real}
+    function UIO(A::U, B::U, C::OutputMatrix{V}, E::U) where {V<:Real, U<:Matrix{V}}
         (ny, feasible, lrE) = checkUIOFeasibility(A,C,E);
         if feasible 
             H = lrE*pinv(C*lrE)
@@ -36,11 +33,7 @@ mutable struct UIO{V<:Real}
     end
 end
 
-function UIO(A::Matrix{V}, 
-        B::Matrix{V}, 
-        C::Subsystems.OutputMatrix{V}, 
-        E::Matrix{V},
-        K1::Matrix{V}) where {V<:Real}
+function UIO(A::U, B::U, C::OutputMatrix{V}, E::U, K1::U) where {V<:Real, U<:Matrix{V}}
     uio = UIO(A, B, C, E)
     setF(uio, K1)
     uio    
@@ -53,7 +46,7 @@ function checkUIOFeasibility(A::Matrix{V},
     nx = size(A,1);
     if rE < nx
         SVD = svd(E);
-        lrE = SVD.U[:,1:rE] * sqrt(SVD.S[1:rE, 1:rE]);
+        lrE = SVD.U[:,1:rE] * sqrt(Diagonal(SVD.S[1:rE]));
     else
         lrE = E;
     end
@@ -61,19 +54,19 @@ function checkUIOFeasibility(A::Matrix{V},
     size(matC, 1), rank(matC*lrE) == rE, lrE 
 end
 
-function setF(o::UIO{T}, K1::Matrix{T}) where {T<:Real} 
+function setF(o::UIO{T}, K1::Matrix{T}) where {T} 
     o.F = o.A1 - K1*o.C
     o.K1 = K1;
     o.K = K1 + o.F*o.H
 end
 
-function updateState(o::UIO{T}, u::Vector{T}, y::Vector{T}) where {T<:Real}
+function updateState(o::UIO{T}, u::Vector{T}, y::Vector{T}) where {T}
     o.z = o.F*o.z + o.T*o.B*u + o.K*y
 end
 
-updateState(o::UIO{T}, u::T, y::Vector{T}) where {T<:Real} = updateState(o, [u], y)
+updateState(o::UIO{T}, u::T, y::Vector{T}) where {T} = updateState(o, [u], y)
 
-outputMap(o::UIO{T}, y::Vector{T}) where {T<:Real} = o.z + o.H*y
+outputMap(o::UIO{T}, y::Vector{T}) where {T} = o.z + o.H*y
 
 function Base.getproperty(sys::UIO, s::Symbol)
     if s === :K2

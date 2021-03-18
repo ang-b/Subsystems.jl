@@ -11,8 +11,10 @@ export LdtiSubsystem,
     AbstractSubsystem,
     UIO, 
     DLUE,
+    UMVE,
     addNeighbour, 
     setNeighbours,
+    setNeighbourCoupling,
     removeNeighbour,
     getNeighbourIndices,
     outputMap,
@@ -30,5 +32,6 @@ end
 include("LdtiSubsystem.jl")
 include("Observers/UIO.jl")
 include("Observers/DLuenberger.jl")
+include("Observers/UMVE.jl")
 
 end
