@@ -61,20 +61,39 @@ function outputMap(sys::LinearSubsystem{T}, u) where {T<:Real}
     sys.C * sys.x + sys.D * u 
 end
 
-function addNeighbour(sys::LinearSubsystem{T}, neighbour::LinearSubsystem{T}, weight::Matrix{T}) where {T<:Real}
+function addNeighbour(sys::LinearSubsystem{T}, neighbour::LinearSubsystem{T}, weight::Matrix{T}, conservation::Bool = false) where {T<:Real}
     if neighbour.index == sys.index 
         error("Self loops are not allowed")
     end
     push!(sys.neighbours, neighbour)
     push!(sys.Aij, weight)
     updateE(sys)
+    if conservation
+       sys.A -= weight 
+    end
     map(x-> convert(Int, x), getNeighbourIndices(sys))
 end
 
-function removeNeighbour(sys::AbstractSubsystem, neighbour::UInt) 
+function removeNeighbour(sys::AbstractSubsystem, neighbour::Integer, conservation::Bool = false) 
     idx = findfirst(x -> x.index == neighbour, sys.neighbours)
     deleteat!(sys.neighbours, idx)
-    deleteat!(sys.Aij, idx)
+    weight = splice!(sys.Aij, idx)
+    if conservation
+        sys.A += weight
+    end
+end
+
+function setNeighbour(sys::LinearSubsystem, neighbour::LinearSubsystem, neighbourIdx::Integer, weight::Matrix{T}, conservation::Bool = false) where {T} 
+    j = findfirst(x -> x.index == neighbourIdx, sys.neighbours)
+    # if conservation 
+    #     sys.A -= weight
+    # end
+    sys.neighbours[j] = neighbour
+    if conservation
+        sys.A = sys.A + sys.Aij[j] - weight
+    end
+    sys.Aij[j] = weight
+    updateE(sys)
 end
 
 function getNeighbourIndices(sys::AbstractSubsystem) 
@@ -108,7 +127,7 @@ function Base.getproperty(sys::LinearSubsystem, s::Symbol)
 end
 
 function Base.setproperty!(sys::LinearSubsystem, s::Symbol, val)
-    if s ∉ [:A, :B, :C, :D] 
+    if s ∉ [:A, :B, :C, :D, :index] 
         error("Protected property")
     else
         if size(val) != size(getfield(sys, s))
@@ -124,6 +143,7 @@ function Base.show(io::IO, sys::LinearSubsystem)
     #inputs = format_names(s.inputnames, "u", "?")
     #outputs = format_names(s.outputnames, "y", "?")
     println(io, "Subsystem $(sys.index):")
+    println(io, "Neighbours = $(convert.(Int64, getNeighbourIndices(sys)))")
     # println(io, typeof(sys))
     if size(sys.A, 1) > 0
         #states = format_names(s.statenames, "x", "?")
