@@ -40,74 +40,74 @@ mutable struct LdtiSubsystem{T<:Real} <:LinearSubsystem{T}
     end
 end
 
-function setInitialState(sys::LdtiSubsystem{T}, x::Vector{T}) where {T}
-    setfield!(sys, :x, x)
-    setfield!(sys, :xnext, x)
+function setInitialState(s::LdtiSubsystem{T}, x::Vector{T}) where {T}
+    setfield!(s, :x, x)
+    setfield!(s, :xnext, x)
 end
 
-function updateState(sys::LdtiSubsystem{T}, u::Vector{T}, w::Vector{T}) where {T}
-    if isempty(sys.neighbours) 
-        setfield!(sys, :xnext, sys.A * sys.x + sys.B * u .+ w)
+function updateState(s::LdtiSubsystem{T}, u::Union{T, Vector{T}}, w::Vector{T}) where {T}
+    if isempty(s.neighbours) 
+        setfield!(s, :xnext, s.A * s.x + (s.B * u)[:] .+ w)
     else
-        barx = getNeighbourStates(sys)
-        setfield!(sys, :xnext, sys.A * sys.x + sys.B * u + sys.E * barx + w) 
+        barx = getNeighbourStates(s)
+        setfield!(s, :xnext, s.A * s.x + s.B * u + s.E * barx + w) 
     end
 end
-updateState(sys::LdtiSubsystem{T}, u::T, w::Vector{T}) where {T} = updateState(sys, [u], w)
-updateState(sys::LdtiSubsystem{T}, u) where {T} = updateState(sys, u, convert(T, 0))
+updateState(s::LdtiSubsystem{T}, u::Union{T, Vector{T}}) where {T} = updateState(s, u, zeros(T, s.nx))
 
-function outputMap(sys::LinearSubsystem{T}, u) where {T<:Real}
-    setfield!(sys, :x, sys.xnext)
-    sys.C * sys.x + sys.D * u 
+function outputMap(s::LinearSubsystem{T}, u::Union{T, Vector{T}}, v::Vector{T}) where {T}
+    setfield!(s, :x, s.xnext)
+    s.C * s.x + (s.D * u)[:] + v
 end
+outputMap(s::LinearSubsystem{T}, u::Union{T, Vector{T}}) where {T} = outputMap(s, u, zeros(T, s.ny))
 
-getNeighbourStates(sys::AbstractSubsystem) = mapreduce(s -> s.x, vcat, sys.neighbours)
+getNeighbourStates(s::AbstractSubsystem) = mapreduce(s -> s.x, vcat, s.neighbours)
 
-function addNeighbour(sys::LinearSubsystem{T}, neighbour::LinearSubsystem{T}, weight::Matrix{T}, conservation::Bool = false) where {T<:Real}
-    if neighbour.index == sys.index 
+function addNeighbour(s::LinearSubsystem{T}, neighbour::LinearSubsystem{T}, weight::Matrix{T}, conservation::Bool = false) where {T<:Real}
+    if neighbour.index == s.index 
         error("Self loops are not allowed")
     end
-    push!(sys.neighbours, neighbour)
-    push!(sys.Aij, weight)
-    updateE(sys)
+    push!(s.neighbours, neighbour)
+    push!(s.Aij, weight)
+    updateE(s)
     if conservation
-       sys.A -= weight 
+       s.A -= weight 
     end
-    map(x-> convert(Int, x), getNeighbourIndices(sys))
+    map(x-> convert(Int, x), getNeighbourIndices(s))
 end
 
-function removeNeighbour(sys::AbstractSubsystem, neighbour::Integer, conservation::Bool = false) 
-    idx = findfirst(x -> x.index == neighbour, sys.neighbours)
-    deleteat!(sys.neighbours, idx)
-    weight = splice!(sys.Aij, idx)
+function removeNeighbour(s::AbstractSubsystem, neighbour::Integer, conservation::Bool = false) 
+    idx = findfirst(x -> x.index == neighbour, s.neighbours)
+    deleteat!(s.neighbours, idx)
+    weight = splice!(s.Aij, idx)
     if conservation
-        sys.A += weight
+        s.A += weight
     end
 end
 
-function setNeighbour(sys::LinearSubsystem, neighbour::LinearSubsystem, neighbourIdx::Integer, weight::Matrix{T}, conservation::Bool = false) where {T} 
-    j = findfirst(x -> x.index == neighbourIdx, sys.neighbours)
-    sys.neighbours[j] = neighbour
+function setNeighbour(s::LinearSubsystem, neighbour::LinearSubsystem, neighbourIdx::Integer, weight::Matrix{T}, conservation::Bool = false) where {T} 
+    j = findfirst(x -> x.index == neighbourIdx, s.neighbours)
+    s.neighbours[j] = neighbour
     if conservation
-        sys.A = sys.A + sys.Aij[j] - weight
+        s.A = s.A + s.Aij[j] - weight
     end
-    sys.Aij[j] = weight
-    updateE(sys)
+    s.Aij[j] = weight
+    updateE(s)
 end
 
-function getNeighbourIndices(sys::AbstractSubsystem) 
-    Tuple([s.index for s in sys.neighbours])
+function getNeighbourIndices(s::AbstractSubsystem) 
+    Tuple([s.index for s in s.neighbours])
 end
 
-function updateE(sys::LinearSubsystem{T}) where {T}
-    setfield!(sys, :E, isempty(sys.Aij) ? 
-                            Matrix{T}(undef, sys.nx, 0) : 
-                            foldl(hcat, sys.Aij))
+function updateE(s::LinearSubsystem{T}) where {T}
+    setfield!(s, :E, isempty(s.Aij) ? 
+                            Matrix{T}(undef, s.nx, 0) : 
+                            foldl(hcat, s.Aij))
 end
 
-ninputs(sys::LinearSubsystem) = size(sys.D, 2)
-noutputs(sys::LinearSubsystem) = size(sys.D, 1)
-nstates(sys::LinearSubsystem) = size(sys.A, 1)
+ninputs(s::LinearSubsystem) = size(s.D, 2)
+noutputs(s::LinearSubsystem) = size(s.D, 1)
+nstates(s::LinearSubsystem) = size(s.A, 1)
 
 Base.eltype(::Type{S}) where {S<:LinearSubsystem} = S
 
@@ -137,21 +137,16 @@ function Base.setproperty!(sys::LinearSubsystem, s::Symbol, val)
     end
 end
 
-function Base.show(io::IO, sys::LinearSubsystem)
-    # Compose the name vectors
-    #inputs = format_names(s.inputnames, "u", "?")
-    #outputs = format_names(s.outputnames, "y", "?")
-    println(io, "Subsystem $(sys.index):")
-    println(io, "Neighbours = $(convert.(Int64, getNeighbourIndices(sys)))")
-    # println(io, typeof(sys))
-    if size(sys.A, 1) > 0
-        #states = format_names(s.statenames, "x", "?")
-        println(io, "A = \n", _string_mat_with_headers(sys.A))
-        println(io, "B = \n", _string_mat_with_headers(sys.B))
-        println(io, "C = ", sys.C == I ? "I" : "\n"*_string_mat_with_headers(sys.C))
+function Base.show(io::IO, s::LinearSubsystem)
+    println(io, "Subsystem $(s.index):")
+    if size(s.A, 1) > 0
+        println(io, "A = \n", _string_mat_with_headers(s.A))
+        println(io, "B = \n", _string_mat_with_headers(s.B))
+        println(io, "C = ", s.C == I ? "I" : "\n"*_string_mat_with_headers(s.C))
     end
-    println(io, "D = \n", _string_mat_with_headers(sys.D), "\n")
-    if !isempty(sys.neighbours)
-        println(io, "E = \n", _string_mat_with_headers(sys.E))
+    println(io, "D = \n", _string_mat_with_headers(s.D), "\n")
+    if !isempty(s.neighbours)
+        println(io, "Neighbours = $(convert.(Int64, getNeighbourIndices(s)))")
+        println(io, "E = \n", _string_mat_with_headers(s.E))
     end
 end
