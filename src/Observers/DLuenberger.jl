@@ -34,7 +34,7 @@ end
 
 updateState(o::DLUE{V}, u::V, y::Vector{V}, hatbarx::Vector{V}) where {V} = updateState(o, [u], y, hatbarx)
 
-outputMap(o::DLUE{<:Real}) = o.C*o.z
+outputMap(o::DLUE) = o.C*o.z
 
 function Base.getproperty(o::DLUE, s::Symbol) 
     if s === :nx

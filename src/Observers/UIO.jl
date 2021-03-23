@@ -42,13 +42,13 @@ end
 function checkUIOFeasibility(A::Matrix{V}, 
         C::OutputMatrix{V}, 
         E::Matrix{V}) where {V<:Real}
-    rE = rank(E);
-    nx = size(A,1);
+    rE = rank(E)
+    nx = size(A,1)
     if rE < nx
         SVD = svd(E);
-        lrE = SVD.U[:,1:rE] * sqrt(Diagonal(SVD.S[1:rE]));
+        lrE = SVD.U[:,1:rE] * sqrt(Diagonal(SVD.S[1:rE]))
     else
-        lrE = E;
+        lrE = E
     end
     matC = C == I ? 1.0 * Matrix(I, nx, nx) : C
     size(matC, 1), rank(matC*lrE) == rE, lrE 

@@ -16,4 +16,5 @@ using TimerOutputs
 @testset "Subsystems.jl" begin
     # include("test_UIO.jl")
     include("test_ldti.jl")
+    include("test_UMVE.jl")
 end

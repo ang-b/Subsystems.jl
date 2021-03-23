@@ -1,33 +1,32 @@
 mutable struct UMVE{T<:Real}
     A::Matrix{T}
     B::Matrix{T}
-    C::Matrix{T}
+    C::OutputMatrix{T}
     G::Matrix{T}
     W::Matrix{T}
     V::Matrix{T}
-    # Abar::Matrix{T}
     Ebar::Matrix{T}
-    # Lbar::Matrix{T}
     z::Vector{T}
     xi::Vector{T}
     Pi::Matrix{T} # state estimation error covariance
     Delta::Union{Matrix{T}, Missing} # input estimation error covariance
 
-    function UMVE(A::S, B::S, C::OutputMatrix{T}, E::S, W::S, V::S) where {T<:Real, S<:Matrix{T}}
+    function UMVE(A::S, B::S, C::OutputMatrix{T}, E::S, W::AbstractMatrix{T}, V::AbstractMatrix{T}) where {T<:Real, S<:Matrix{T}}
         if !isposdef(W)
             throw(DomainError(W, "W must be positive definite"))
         end
         if !isposdef(V)
             throw(DomainError(V, "V must be positive definite"))
         end
+        W = Matrix(W)
+        V = Matrix(V)
+        feasible, G, Ebar = checkUMVEFeasibility(C,E)
         nx = size(A,1)
         nxi = size(G,2)
-        feasible, G, Ebar = checkUMVEFeasibility(C,E)
         if feasible
             Pk = W
             Rk = R(A, C, Pk, W, V)
             Mk = M(G, C, Rk)
-            # Kk = K(A, C, Pk, W, Rk) 
             new{T}(
                 A,
                 B,
@@ -35,9 +34,7 @@ mutable struct UMVE{T<:Real}
                 G,
                 W,
                 V,
-                # barA(Kk, C, G, Mk),
                 Ebar,
-                # barL(Kk, C, G, Mk),
                 zeros(T, nx),
                 zeros(T, nxi),
                 W,
@@ -49,12 +46,12 @@ mutable struct UMVE{T<:Real}
     end
 end
 
-function checkUMVEFeasibility(C::OutputMatrix{T}, E::Matrix{T}) where {T}
-    feasible = rank(C*E) == rank(E)
+function checkUMVEFeasibility(C::OutputMatrix, E::Matrix) 
+    rE = rank(E)
+    feasible = rank(C*E) == rE
     SVD = svd(E)
-    sqrtSigma = sqrt(Diagonal(SVD.s))
-    G = SVD.U * sqrtSigma
-    Ebar = sqrtSigma * SVD.Vt
+    G = SVD.U[:,1:rE]
+    Ebar = (Diagonal(SVD.S) * SVD.Vt)[1:rE,:]
     feasible, G, Ebar
 end
 
@@ -66,14 +63,17 @@ barL(Kk::T, C::OutputMatrix{S}, G::T, Mk::T) where {S<:Real, T<:Matrix{S}} = Kk 
 
 function updateState(o::UMVE{T}, u::Vector{T}, y::Vector{T}) where {T}
     Rk = R(o.A, o.C, o.Pi, o.W, o.V)
-    setfield!(o, :R, Rk)
+    # setfield!(o, :R, Rk)
     Mk = M(o.G, o.C, Rk)
     setfield!(o, :Delta, Mk*Rk*Mk')
-    Kk = K(o.A, o.C, Pk, o.W, Rk)
+    Kk = K(o.A, o.C, o.Pi, o.W, Rk)
     Abar = barA(Kk, o.C, o.G, Mk)
     Lbar = barL(Kk, o.C, o.G, Mk)
     biased_z = o.A*o.z + o.B*u
     setfield!(o, :z, Abar*biased_z + Lbar*y)
     setfield!(o, :xi, Mk*(y - o.C*biased_z)) 
-    setfield!(o, :Pi, Abar*o.A*o.Pi*A'Abar' + Abar*W*Abar' + Lbar*V*Lbar')
+    setfield!(o, :Pi, Abar*o.A*o.Pi*o.A'Abar' + Abar*o.W*Abar' + Lbar*o.V*Lbar')
 end
+updateState(o::UMVE{T}, u::T, y::Vector{T}) where {T} = updateState(o, [u], y)
+
+outputMap(o::UMVE) = o.C*o.z

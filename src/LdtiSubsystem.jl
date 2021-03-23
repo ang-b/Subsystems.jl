@@ -49,7 +49,7 @@ function updateState(sys::LdtiSubsystem{T}, u::Vector{T}, w::Vector{T}) where {T
     if isempty(sys.neighbours) 
         setfield!(sys, :xnext, sys.A * sys.x + sys.B * u .+ w)
     else
-        barx = mapreduce(s -> s.x, vcat, sys.neighbours)
+        barx = getNeighbourStates(sys)
         setfield!(sys, :xnext, sys.A * sys.x + sys.B * u + sys.E * barx + w) 
     end
 end
@@ -60,6 +60,8 @@ function outputMap(sys::LinearSubsystem{T}, u) where {T<:Real}
     setfield!(sys, :x, sys.xnext)
     sys.C * sys.x + sys.D * u 
 end
+
+getNeighbourStates(sys::AbstractSubsystem) = mapreduce(s -> s.x, vcat, sys.neighbours)
 
 function addNeighbour(sys::LinearSubsystem{T}, neighbour::LinearSubsystem{T}, weight::Matrix{T}, conservation::Bool = false) where {T<:Real}
     if neighbour.index == sys.index 
@@ -85,9 +87,6 @@ end
 
 function setNeighbour(sys::LinearSubsystem, neighbour::LinearSubsystem, neighbourIdx::Integer, weight::Matrix{T}, conservation::Bool = false) where {T} 
     j = findfirst(x -> x.index == neighbourIdx, sys.neighbours)
-    # if conservation 
-    #     sys.A -= weight
-    # end
     sys.neighbours[j] = neighbour
     if conservation
         sys.A = sys.A + sys.Aij[j] - weight
@@ -149,7 +148,10 @@ function Base.show(io::IO, sys::LinearSubsystem)
         #states = format_names(s.statenames, "x", "?")
         println(io, "A = \n", _string_mat_with_headers(sys.A))
         println(io, "B = \n", _string_mat_with_headers(sys.B))
-        println(io, "C = \n", sys.C == I ? "I" : _string_mat_with_headers(sys.C))
+        println(io, "C = ", sys.C == I ? "I" : "\n"*_string_mat_with_headers(sys.C))
     end
     println(io, "D = \n", _string_mat_with_headers(sys.D), "\n")
+    if !isempty(sys.neighbours)
+        println(io, "E = \n", _string_mat_with_headers(sys.E))
+    end
 end
