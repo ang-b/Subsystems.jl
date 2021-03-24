@@ -31,7 +31,7 @@ mutable struct LdtiSubsystem{T<:Real} <:LinearSubsystem{T}
     xnext::Vector{T}
     function LdtiSubsystem(i, A::Matrix{T}, B::Matrix{T}, C::OutputMatrix{T}, D::Matrix{T}) where {T<:Real} 
         (nx, nu, ny) = state_space_validation(A, B, C, D)
-        new{T}(A, B, C, D, Matrix{T}(undef, nx, 0), i, [], [], zeros(T, nx), zeros(T, nx))
+        new{T}(A, B, C, D, zeros(T, nx, 0), i, [], [], zeros(T, nx), zeros(T, nx))
     end
     function LdtiSubsystem(i, A::Matrix{T}, B::Matrix{T}, C::OutputMatrix{T}) where {T<:Real}
         ny = C == I ? size(A,1) : size(C,1)
@@ -61,7 +61,7 @@ function outputMap(s::LinearSubsystem{T}, u::Union{T, Vector{T}}, v::Vector{T}) 
 end
 outputMap(s::LinearSubsystem{T}, u::Union{T, Vector{T}}) where {T} = outputMap(s, u, zeros(T, s.ny))
 
-getNeighbourStates(s::AbstractSubsystem) = mapreduce(s -> s.x, vcat, s.neighbours)
+getNeighbourStates(s::AbstractSubsystem) = isempty(s.neighbours) ? zero(s.x) : foldl(vcat, [s.x for s in s.neighbours])
 
 function addNeighbour(s::LinearSubsystem{T}, neighbour::LinearSubsystem{T}, weight::Matrix{T}, conservation::Bool = false) where {T<:Real}
     if neighbour.index == s.index 
@@ -83,6 +83,7 @@ function removeNeighbour(s::AbstractSubsystem, neighbour::Integer, conservation:
     if conservation
         s.A += weight
     end
+    updateE(s)
 end
 
 function setNeighbour(s::LinearSubsystem, neighbour::LinearSubsystem, neighbourIdx::Integer, weight::Matrix{T}, conservation::Bool = false) where {T} 
@@ -100,24 +101,20 @@ function getNeighbourIndices(s::AbstractSubsystem)
 end
 
 function updateE(s::LinearSubsystem{T}) where {T}
-    setfield!(s, :E, isempty(s.Aij) ? 
-                            Matrix{T}(undef, s.nx, 0) : 
-                            foldl(hcat, s.Aij))
+    setfield!(s, :E, isempty(s.Aij) ? zeros(T, s.nx, 0) : foldl(hcat, s.Aij))
 end
-
-ninputs(s::LinearSubsystem) = size(s.D, 2)
-noutputs(s::LinearSubsystem) = size(s.D, 1)
-nstates(s::LinearSubsystem) = size(s.A, 1)
 
 Base.eltype(::Type{S}) where {S<:LinearSubsystem} = S
 
 function Base.getproperty(sys::LinearSubsystem, s::Symbol)
     if s === :nx
-        return nstates(sys)
+        return size(sys.A, 1)
     elseif s === :nu
-        return ninputs(sys)
+        return size(sys.B, 2)
     elseif s === :ny
-        return noutputs(sys)
+        return size(sys.D, 1)
+    elseif s === :nx̄
+        return size(sys.E,2)
     elseif s === :Cmat
         return sys.C == I ? Matrix(I, sys.ny, sys.ny) : sys.C
     else

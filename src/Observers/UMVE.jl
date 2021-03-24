@@ -20,7 +20,7 @@ mutable struct UMVE{T<:Real}
         end
         W = Matrix(W)
         V = Matrix(V)
-        feasible, G, Ebar = checkUMVEFeasibility(C,E)
+        feasible, G, Ebar = checkUMVEFeasibility(C,E, false)
         nx = size(A,1)
         nxi = size(G,2)
         if feasible
@@ -46,12 +46,17 @@ mutable struct UMVE{T<:Real}
     end
 end
 
-function checkUMVEFeasibility(C::OutputMatrix, E::Matrix) 
+function checkUMVEFeasibility(C::OutputMatrix, E::Matrix, decompose::Bool = true) 
     rE = rank(E)
     feasible = rank(C*E) == rE
-    SVD = svd(E)
-    G = SVD.U[:,1:rE]
-    Ebar = (Diagonal(SVD.S) * SVD.Vt)[1:rE,:]
+    if decompose
+        SVD = svd(E)
+        G = SVD.U[:,1:rE]
+        Ebar = (Diagonal(SVD.S) * SVD.Vt)[1:rE,:]
+    else
+        G = Matrix{eltype(E)}(I, size(E,1), size(E,1))
+        Ebar = E
+    end
     feasible, G, Ebar
 end
 
