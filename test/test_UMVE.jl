@@ -14,16 +14,30 @@ using Test
     
     @testset "handles empty neighbourhoods" begin
         s = LdtiSubsystem(1, A, B, C)
-        o = UMVE(s.A, s.B, s.C, s.E, W, V)
-        Rk = Subsystems.R(o.A, o.C, o.Pi, o.W, o.V)
-        M∅ = Subsystems.M(o.G, o.C, Rk)
-        Kk = Subsystems.K(o.A, o.C, o.Pi, o.W, Rk)
-        Ā∅ = Subsystems.barA(Kk, o.C, o.G, M∅)
-        L̄∅ = Subsystems.barL(Kk, o.C, o.G, M∅)
-        
-        @test M∅ == zeros(0,2)
-        @test Ā∅ == (I - Kk*o.C)        
-        @test L̄∅ == Kk
+        @testset "with svd" begin
+            o = UMVE(s.A, s.B, s.C, s.E, W, V)
+            Rk = Subsystems.R(o.A, o.C, o.Pi, o.W, o.V)
+            M∅ = Subsystems.M(o.G, o.C, Rk)
+            Kk = Subsystems.K(o.A, o.C, o.Pi, o.W, Rk)
+            Ā∅ = Subsystems.barA(Kk, o.C, o.G, M∅)
+            L̄∅ = Subsystems.barL(Kk, o.C, o.G, M∅)
+            
+            @test M∅ == zeros(0,2)
+            @test Ā∅ == (I - Kk*o.C)        
+            @test L̄∅ == Kk
+        end
+        @testset "without svd" begin
+            o = UMVE(s.A, s.B, s.C, s.E, W, V, false)
+            Rk = Subsystems.R(o.A, o.C, o.Pi, o.W, o.V)
+            M∅ = Subsystems.M(o.G, o.C, Rk)
+            Kk = Subsystems.K(o.A, o.C, o.Pi, o.W, Rk)
+            Ā∅ = Subsystems.barA(Kk, o.C, o.G, M∅)
+            L̄∅ = Subsystems.barL(Kk, o.C, o.G, M∅)
+            
+            @test M∅ == zeros(0,2)
+            @test Ā∅ == (I - Kk*o.C)        
+            @test L̄∅ == Kk
+        end
     end
     
     @testset "Constructor" begin
@@ -32,16 +46,31 @@ using Test
             LSS = [LdtiSubsystem(i, A, B, C) for i in 1:N]
             # make ring topology
             [addNeighbour(LSS[i], LSS[i%N + 1], Aij) for i in 1:N]
-            O = [UMVE(s.A, s.B, s.C, s.E, W, V) for s in LSS]
-
-            for o in O
-                @test o.G ≈ reshape([1. 0], :, 1)
+            
+            @testset "with svd" begin
+                O = [UMVE(s.A, s.B, s.C, s.E, W, V) for s in LSS]
+                for o in O
+                    @test o.G ≈ reshape([1. 0], :, 1)
+                end
+            end
+            @testset "without svd" begin
+                O = [UMVE(s.A, s.B, s.C, s.E, W, V, false) for s in LSS]
+                for o in O
+                    @test o.G ≈ Matrix{eltype(o.G)}(I, o.nxi, o.nxi)
+                end
             end
         end
         @testset "can build with no neighbours" begin
             s = LdtiSubsystem(1, A, B, C)
-            o = UMVE(s.A, s.B, s.C, s.E, W, V)
-            @test o.G == zeros(s.nx, 0)
+            @testset "with svd" begin
+                o = UMVE(s.A, s.B, s.C, s.E, W, V)
+                @test o.G == zeros(s.nx, 0)
+            end
+            @testset "without svd" begin
+                o = UMVE(s.A, s.B, s.C, s.E, W, V, false)
+                @test o.G == zeros(s.nx, 0)
+                @test o.Ebar == zeros(s.nx, 0)
+            end
         end
     end
 

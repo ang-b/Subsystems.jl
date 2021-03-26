@@ -11,9 +11,15 @@ mutable struct DLUE{V<:Real}
             B, 
             C,
             L, 
-            Matrix{V}(undef, size(A,1), 0),
+            zeros(size(A,1), 0),
             zeros(V, size(A,1)))
     end
+end
+
+function DLUE(s::LdtiSubsystem{T}, L::AbstractMatrix{T}) where {T} 
+    o = DLUE(s.A, s.B, s.C, Matrix(L))
+    setNeighbourCoupling(o, s.E)
+    o
 end
 
 function setInitialState(o::DLUE{V}, z0::Vector{V}) where {V<:Real}

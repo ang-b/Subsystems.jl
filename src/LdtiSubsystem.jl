@@ -52,6 +52,7 @@ function updateState(s::LdtiSubsystem{T}, u::Union{T, Vector{T}}, w::Vector{T}) 
         barx = getNeighbourStates(s)
         setfield!(s, :xnext, s.A * s.x + s.B * u + s.E * barx + w) 
     end
+    s.xnext
 end
 updateState(s::LdtiSubsystem{T}, u::Union{T, Vector{T}}) where {T} = updateState(s, u, zeros(T, s.nx))
 
@@ -63,7 +64,7 @@ outputMap(s::LinearSubsystem{T}, u::Union{T, Vector{T}}) where {T} = outputMap(s
 
 getNeighbourStates(s::AbstractSubsystem) = isempty(s.neighbours) ? zero(s.x) : foldl(vcat, [s.x for s in s.neighbours])
 
-function addNeighbour(s::LinearSubsystem{T}, neighbour::LinearSubsystem{T}, weight::Matrix{T}, conservation::Bool = false) where {T<:Real}
+function addNeighbour(s::LinearSubsystem{T}, neighbour::LinearSubsystem{T}, weight::Matrix{T}, conservation::Bool = false) where {T}
     if neighbour.index == s.index 
         error("Self loops are not allowed")
     end
@@ -104,9 +105,18 @@ function updateE(s::LinearSubsystem{T}) where {T}
     setfield!(s, :E, isempty(s.Aij) ? zeros(T, s.nx, 0) : foldl(hcat, s.Aij))
 end
 
+function getOutboundWeights(s::LinearSubsystem{T}) where {T}
+    outWeights = Vector{Matrix{T}}()
+    for sj in s.neighbours
+        ji = findfirst(x -> s.index == x, getNeighbourIndices(sj))
+        push!(outWeights, sj.Aij[ji])
+    end
+    outWeights
+end
+
 Base.eltype(::Type{S}) where {S<:LinearSubsystem} = S
 
-function Base.getproperty(sys::LinearSubsystem, s::Symbol)
+function Base.getproperty(sys::LinearSubsystem{T}, s::Symbol) where {T}
     if s === :nx
         return size(sys.A, 1)
     elseif s === :nu
@@ -116,7 +126,7 @@ function Base.getproperty(sys::LinearSubsystem, s::Symbol)
     elseif s === :nx̄
         return size(sys.E,2)
     elseif s === :Cmat
-        return sys.C == I ? Matrix(I, sys.ny, sys.ny) : sys.C
+        return sys.C == I ? Matrix{T}(I, sys.ny, sys.ny) : sys.C
     else
         return getfield(sys, s)
     end

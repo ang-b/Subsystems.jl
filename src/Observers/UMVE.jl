@@ -11,7 +11,13 @@ mutable struct UMVE{T<:Real}
     Pi::Matrix{T} # state estimation error covariance
     Delta::Union{Matrix{T}, Missing} # input estimation error covariance
 
-    function UMVE(A::S, B::S, C::OutputMatrix{T}, E::S, W::AbstractMatrix{T}, V::AbstractMatrix{T}) where {T<:Real, S<:Matrix{T}}
+    function UMVE(A::S,
+        B::S,
+        C::OutputMatrix{T},
+        E::S,
+        W::AbstractMatrix{T},
+        V::AbstractMatrix{T},
+        decompose::Bool = true) where {T<:Real, S<:Matrix{T}}
         if !isposdef(W)
             throw(DomainError(W, "W must be positive definite"))
         end
@@ -20,7 +26,7 @@ mutable struct UMVE{T<:Real}
         end
         W = Matrix(W)
         V = Matrix(V)
-        feasible, G, Ebar = checkUMVEFeasibility(C,E, false)
+        feasible, G, Ebar = checkUMVEFeasibility(C,E, decompose)
         nx = size(A,1)
         nxi = size(G,2)
         if feasible
@@ -46,7 +52,7 @@ mutable struct UMVE{T<:Real}
     end
 end
 
-function checkUMVEFeasibility(C::OutputMatrix, E::Matrix, decompose::Bool = true) 
+function checkUMVEFeasibility(C::OutputMatrix, E::Matrix, decompose::Bool) 
     rE = rank(E)
     feasible = rank(C*E) == rE
     if decompose
@@ -54,7 +60,8 @@ function checkUMVEFeasibility(C::OutputMatrix, E::Matrix, decompose::Bool = true
         G = SVD.U[:,1:rE]
         Ebar = (Diagonal(SVD.S) * SVD.Vt)[1:rE,:]
     else
-        G = Matrix{eltype(E)}(I, size(E,1), size(E,1))
+        nz = size(E,1)
+        G = isempty(E) ? zeros(nz, 0) : Matrix{eltype(E)}(I, nz, nz)
         Ebar = E
     end
     feasible, G, Ebar
@@ -82,3 +89,13 @@ end
 updateState(o::UMVE{T}, u::T, y::Vector{T}) where {T} = updateState(o, [u], y)
 
 outputMap(o::UMVE) = o.C*o.z
+
+function Base.getproperty(o::UMVE, s::Symbol)
+    if s === :nz
+        return length(o.z)
+    elseif s === :nxi
+        return length(o.xi)
+    else
+        return getfield(o, s)
+    end
+end

@@ -81,6 +81,21 @@ using Test
             @test x1bar == zero(s1.x)
         end
     end
+
+    @testset "getOutboundWeights" begin
+        s1 = LdtiSubsystem(1, A, B, C)
+        s2 = LdtiSubsystem(2, A, B, C)
+        s3 = LdtiSubsystem(3, A, B, C)
+        A1x = rand(2,2)
+        A31 = rand(2,2)
+        A21 = rand(2,2)
+        addNeighbour(s1, s2, A1x)
+        addNeighbour(s1, s3, A1x)
+        addNeighbour(s2, s1, A21)
+        addNeighbour(s3, s1, A31)
+        
+        @test getOutboundWeights(s1) == [A21, A31]
+    end
     
     @testset "updateState" begin
         @testset "implements correct state equation" begin

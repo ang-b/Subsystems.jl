@@ -54,7 +54,7 @@ function checkUIOFeasibility(A::Matrix{V},
     size(matC, 1), rank(matC*lrE) == rE, lrE 
 end
 
-function setF(o::UIO{T}, K1::Matrix{T}) where {T} 
+function setF(o::UIO{T}, K1::AbstractMatrix{T}) where {T} 
     o.F = o.A1 - K1*o.C
     o.K1 = K1;
     o.K = K1 + o.F*o.H
