@@ -19,25 +19,29 @@ function state_space_validation(A,B,C,D)
 end
 
 mutable struct LdtiSubsystem{T<:Real} <:LinearSubsystem{T}
-    A::Matrix{T}
-    B::Matrix{T}
+    A::AbstractMatrix{T}
+    B::AbstractMatrix{T}
     C::OutputMatrix{T}
-    D::Matrix{T}
-    E::Matrix{T}
+    D::AbstractMatrix{T}
+    E::AbstractMatrix{T}
     index::UInt
     neighbours::Array{LdtiSubsystem{T}}
-    Aij::Array{Matrix{T}}
+    Aij::Array{AbstractMatrix{T}}
     x::Vector{T}
     xnext::Vector{T}
-    function LdtiSubsystem(i, A::Matrix{T}, B::Matrix{T}, C::OutputMatrix{T}, D::Matrix{T}) where {T<:Real} 
+    function LdtiSubsystem(i, A::AbstractMatrix{T}, B::AbstractMatrix{T}, C::OutputMatrix{T}, D::AbstractMatrix{T}) where {T<:Real} 
         (nx, nu, ny) = state_space_validation(A, B, C, D)
         new{T}(A, B, C, D, zeros(T, nx, 0), i, [], [], zeros(T, nx), zeros(T, nx))
     end
-    function LdtiSubsystem(i, A::Matrix{T}, B::Matrix{T}, C::OutputMatrix{T}) where {T<:Real}
+    function LdtiSubsystem(i, A::AbstractMatrix{T}, B::AbstractMatrix{T}, C::OutputMatrix{T}) where {T<:Real}
         ny = C == I ? size(A,1) : size(C,1)
         D = zeros(T, ny, size(B, 2))    
         LdtiSubsystem(i, A, B, C, D)
     end
+end
+
+function Base.zero(s::LdtiSubsystem{T}) where {T}
+    LdtiSubsystem(0, zeros(T, s.nx,s.nx), zeros(T, s.nx, 1), I)
 end
 
 function setInitialState(s::LdtiSubsystem{T}, x::Vector{T}) where {T}
@@ -64,7 +68,7 @@ outputMap(s::LinearSubsystem{T}, u::Union{T, Vector{T}}) where {T} = outputMap(s
 
 getNeighbourStates(s::AbstractSubsystem) = isempty(s.neighbours) ? zero(s.x) : foldl(vcat, [s.x for s in s.neighbours])
 
-function addNeighbour(s::LinearSubsystem{T}, neighbour::LinearSubsystem{T}, weight::Matrix{T}, conservation::Bool = false) where {T}
+function addNeighbour(s::LinearSubsystem{T}, neighbour::LinearSubsystem{T}, weight::AbstractMatrix{T}, conservation::Bool = false) where {T}
     if neighbour.index == s.index 
         error("Self loops are not allowed")
     end
@@ -87,7 +91,7 @@ function removeNeighbour(s::AbstractSubsystem, neighbour::Integer, conservation:
     updateE(s)
 end
 
-function setNeighbour(s::LinearSubsystem, neighbour::LinearSubsystem, neighbourIdx::Integer, weight::Matrix{T}, conservation::Bool = false) where {T} 
+function setNeighbour(s::LinearSubsystem, neighbour::LinearSubsystem, neighbourIdx::Integer, weight::AbstractMatrix{T}, conservation::Bool = false) where {T} 
     j = findfirst(x -> x.index == neighbourIdx, s.neighbours)
     s.neighbours[j] = neighbour
     if conservation
@@ -106,7 +110,7 @@ function updateE(s::LinearSubsystem{T}) where {T}
 end
 
 function getOutboundWeights(s::LinearSubsystem{T}) where {T}
-    outWeights = Vector{Matrix{T}}()
+    outWeights = Vector{AbstractMatrix{T}}()
     for sj in s.neighbours
         ji = findfirst(x -> s.index == x, getNeighbourIndices(sj))
         push!(outWeights, sj.Aij[ji])
@@ -126,7 +130,7 @@ function Base.getproperty(sys::LinearSubsystem{T}, s::Symbol) where {T}
     elseif s === :nx̄
         return size(sys.E,2)
     elseif s === :Cmat
-        return sys.C == I ? Matrix{T}(I, sys.ny, sys.ny) : sys.C
+        return sys.C == I ? AbstractMatrix{T}(I, sys.ny, sys.ny) : sys.C
     else
         return getfield(sys, s)
     end

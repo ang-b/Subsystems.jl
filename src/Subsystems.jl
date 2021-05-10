@@ -24,9 +24,9 @@ export LdtiSubsystem,
     updateState,
     setInitialState
 
-OutputMatrix{T} = Union{typeof(I), Matrix{T}}
+OutputMatrix{T} = Union{typeof(I), AbstractMatrix{T}}
 
-function _string_mat_with_headers(X::VecOrMat)
+function _string_mat_with_headers(X::AbstractVecOrMat)
     p = (io, m) -> Base.print_matrix(io, m)
     return replace(sprint(p, X), "\"" => " ")
 end
