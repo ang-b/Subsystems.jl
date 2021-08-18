@@ -1,9 +1,10 @@
 module Subsystems
 
 using LinearAlgebra
+using BlockArrays
 
-abstract type AbstractSubsystem end
-abstract type LinearSubsystem{T} <: AbstractSubsystem end
+abstract type AbstractSubsystem{T} end
+abstract type LinearSubsystem{T} <: AbstractSubsystem{T} end
  
 export LdtiSubsystem, 
     LinearSubsystem, 
@@ -35,5 +36,8 @@ include("LdtiSubsystem.jl")
 include("Observers/UIO.jl")
 include("Observers/DLuenberger.jl")
 include("Observers/UMVE.jl")
+include("LSS.jl")
+
+export _getdimarrays
 
 end

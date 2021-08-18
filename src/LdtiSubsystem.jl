@@ -2,13 +2,14 @@ function state_space_validation(A,B,C,D)
     nx = size(A, 1)
     nu = size(B, 2)
     ny = C == I ? nx : size(C, 1)
+    colC = C == I ? nx : size(C, 2)
 
     if size(A, 2) != nx && nx != 0
         error("A has dimentions $(size(A)), but must be square")
     elseif size(B, 1) != nx
         error("The number of rows of A ($(size(A,1))) and B ($(size(B,1))) are not equal")
-    elseif ny != nx
-        error("The number of columns of A ($(size(A,2))) and C ($(ny)) are not equal")
+    elseif colC != nx
+        error("The number of columns of A ($(size(A,2))) and C ($(colC)) are not equal")
     elseif nu != size(D, 2)
         error("The number of columns of B ($(size(B,2))) and D ($(size(D,2))) are not equal")
     elseif ny != size(D, 1)

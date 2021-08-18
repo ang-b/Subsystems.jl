@@ -9,7 +9,7 @@ The code only implements discrete-time equations and it is very experimental and
 The package also includes observer implementations for classic Unknown Input Observers [1], Unbiased Minimum Variance Estimators [2,3], and Distributed Luenberger Observers [4].
 
 ### Disclaimer
-I am a Julia newcomer and the code herein is the result of rushed fiddling to get simulations done as quickly as possibly. 
+I am a Julia newcomer and the code herein is the result of rushed fiddling to get simulations done as quickly as possible. 
 I do intend to improve and maintain this because it is lots of fun, so any constructive criticism is welcome.
 
 ### References 

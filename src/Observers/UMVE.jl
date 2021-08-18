@@ -18,7 +18,7 @@ mutable struct UMVE{T<:Real}
         W::AbstractMatrix{T},
         V::AbstractMatrix{T},
         decompose::Bool = true) where {T<:Real, S<:Matrix{T}}
-        if !isposdef(W)
+        if isposdef(-W) #this does not exist
             throw(DomainError(W, "W must be positive definite"))
         end
         if !isposdef(V)
