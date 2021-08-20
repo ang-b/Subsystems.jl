@@ -38,6 +38,7 @@ include("Observers/DLuenberger.jl")
 include("Observers/UMVE.jl")
 include("LSS.jl")
 
-export _getdimarrays
+export _getdimarrays,
+    tomonolith
 
 end

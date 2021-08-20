@@ -1,6 +1,6 @@
 using Subsystems
 using Test
-using TimerOutputs
+# using TimerOutputs
 
 # macro timed_testset(name::String, block)
 #     # copied from https://github.com/KristofferC/Tensors.jl/blob/master/test/runtests.jl#L8
@@ -17,4 +17,5 @@ using TimerOutputs
     # include("test_UIO.jl")
     include("test_ldti.jl")
     include("test_UMVE.jl")
+    include("test_LSS.jl")
 end
