@@ -55,7 +55,7 @@ function updateState(s::LdtiSubsystem{T}, u::Union{T, Vector{T}}, w::Vector{T}) 
         setfield!(s, :xnext, s.A * s.x + (s.B * u)[:] .+ w)
     else
         barx = getNeighbourStates(s)
-        setfield!(s, :xnext, s.A * s.x + s.B * u + s.E * barx + w) 
+        setfield!(s, :xnext, s.A * s.x + (s.B * u)[:] + s.E * barx + w) 
     end
     s.xnext
 end

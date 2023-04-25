@@ -103,6 +103,12 @@ using Test
             updateState(s, 1.0)
             @test s.xnext == [1.,0.]
             @test s.x == [0., 0.]
+
+            s2 = LdtiSubsystem(2, A, B, C)
+            addNeighbour(s, s2, zeros(2,2), false)
+            updateState(s, 1.0)
+            @test s.xnext == [1., 0]
+            @test s.x == [0., 0]
         end
     end
 end

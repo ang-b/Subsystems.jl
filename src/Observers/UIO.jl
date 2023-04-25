@@ -60,11 +60,11 @@ function setF(o::UIO{T}, K1::AbstractMatrix{T}) where {T}
     o.K = K1 + o.F*o.H
 end
 
-function updateState(o::UIO{T}, u::Vector{T}, y::Vector{T}) where {T}
-    o.z = o.F*o.z + o.T*o.B*u + o.K*y
+function updateState(o::UIO{T}, u::Union{T, Vector{T}}, y::Vector{T}) where {T}
+    o.z = o.F*o.z + (o.T*o.B*u)[:] + o.K*y
 end
 
-updateState(o::UIO{T}, u::T, y::Vector{T}) where {T} = updateState(o, [u], y)
+# updateState(o::UIO{T}, u::T, y::Vector{T}) where {T} = updateState(o, [u], y)
 
 outputMap(o::UIO{T}, y::Vector{T}) where {T} = o.z + o.H*y
 
